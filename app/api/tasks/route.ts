@@ -1,19 +1,7 @@
 import { randomUUID } from "crypto";
 import { NextResponse } from "next/server";
+import { tasks } from "@/app/tasks/data";
 
-
-const tasks = [
-  {
-    id: "1",
-    title: "Learn Next.js",
-    completed: false,
-  },
-  {
-    id: "2",
-    title: "Build API",
-    completed: false,
-  },
-];
 
 
 export async function GET() {
