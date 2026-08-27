@@ -4,21 +4,22 @@ import { useState } from "react";
 
 type Props = {
     onAdd: (title: string) => void;
+    isLoading: boolean;
 };
 
 export default function AddTaskForm(props: Props) {
     //destructuring example function AddTaskForm({ onAdd }: Props)
     const [title, setTitle] = useState("");
 
-        function handleAdd() {
-            //destructuring example onAdd(title);
+    function handleAdd() {
+        //destructuring example onAdd(title);
         props.onAdd(title);
         setTitle("");
     }
 
 
-    
-    
+
+
 
     return (
         <div>
@@ -28,8 +29,11 @@ export default function AddTaskForm(props: Props) {
                 placeholder="Enter task"
             />
 
-            <button onClick={handleAdd}>
-                Add Task
+            <button
+                onClick={handleAdd}
+                disabled={props.isLoading}
+            >
+                {props.isLoading ? "Adding..." : "Add Task"}
             </button>
         </div>
     );

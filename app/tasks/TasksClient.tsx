@@ -1,95 +1,149 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Task } from "./types";
 import AddTaskForm from "./AddTaskForm";
 
-type Props = {
-    initialTasks: Task[];
-};
 
-export default function TasksClient({ initialTasks }: Props) {
-    const [tasks, setTasks] = useState(initialTasks);
 
-    // function addTask(title: string) {
-    //     const newTask: Task = {
-    //         id: Date.now(),
-    //         title: title,
-    //         completed: false
-    //     };
+export default function TasksClient() {
+    const [tasks, setTasks] = useState<Task[]>([]);
+    const [isLoading, setIsLoading] = useState(false);
+    const [isLoadingTasks, setIsLoadingTasks] = useState(true);
+    const [deletingTaskId, setDeletingTaskId] = useState<string | null>(null);
+    const [updatingTaskId, setUpdatingTaskId] = useState<string | null>(null);
 
-    //     setTasks([...tasks, newTask]);
-    // }
+    useEffect(() => {
+        async function loadTasks() {
+            try {
+                const response = await fetch("/api/tasks");
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    alert(data.error);
+                    return;
+                }
+
+                setTasks(data);
+
+            } catch (error) {
+                alert("Unable to load tasks.");
+            } finally {
+                setIsLoadingTasks(false);
+            }
+        }
+
+        loadTasks();
+    }, []);
 
     async function addTask(title: string) {
-        const response = await fetch("/api/tasks", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify({
-                title: title
-            })
-        });
-        const data = await response.json();
-        if (!response.ok) {
-            alert(data.error);
-            return;
+        setIsLoading(true);
+
+        try {
+            const response = await fetch("/api/tasks", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    title: title
+                })
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                alert(data.error);
+                return;
+            }
+
+            setTasks(prevTasks => [...prevTasks, data]);
+
+        } catch (error) {
+            alert("Something went wrong. Please try again.");
+        } finally {
+            setIsLoading(false);
         }
-        setTasks([...tasks, data]);
     }
 
 
     async function completeTask(id: string) {
-
         const task = tasks.find(task => task.id === id);
 
         if (!task) return;
 
         const newCompleted = !task.completed;
 
-        const response = await fetch(`/api/tasks/${id}`, {
-            method: "PATCH",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify({
-                completed: newCompleted
-            })
-        });
+        setUpdatingTaskId(id);
+
+        try {
+            const response = await fetch(`/api/tasks/${id}`, {
+                method: "PATCH",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    completed: newCompleted
+                })
+            });
+
             const data = await response.json();
-        if (!response.ok) {
-            alert(data.error);
-            return;
+
+            if (!response.ok) {
+                alert(data.error);
+                return;
+            }
+
+            setTasks(prevTasks =>
+                prevTasks.map(task =>
+                    task.id === id
+                        ? { ...task, completed: data.completed }
+                        : task
+                )
+            );
+
+        } catch (error) {
+            alert("Something went wrong. Please try again.");
+        } finally {
+            setUpdatingTaskId(null);
         }
-
-
-        setTasks(
-            tasks.map(task =>
-                task.id === id
-                    ? { ...task, completed: data.completed }
-                    : task
-            )
-        );
     }
 
     async function deleteTask(id: string) {
-        const response = await fetch(`/api/tasks/${id}`, {
-            method: "DELETE"
-        });
-        if (!response.ok) {
+        setDeletingTaskId(id);
+
+        try {
+            const response = await fetch(`/api/tasks/${id}`, {
+                method: "DELETE",
+            });
+
             const data = await response.json();
-            alert(data.error);
-            return;
+
+            if (!response.ok) {
+                alert(data.error);
+                return;
+            }
+
+            setTasks(prevTasks =>
+                prevTasks.filter(task => task.id !== id)
+            );
+
+        } catch (error) {
+            alert("Something went wrong. Please try again.");
+        } finally {
+            setDeletingTaskId(null);
         }
-        setTasks(
-            tasks.filter(task => task.id !== id)
-        );
     }
 
     return (
         <div>
-            <AddTaskForm onAdd={addTask} />
+            <AddTaskForm
+                onAdd={addTask}
+                isLoading={isLoading}
+            />
+
+            {isLoadingTasks && <p>Loading tasks...</p>}
 
             <ul>
                 {tasks.map(task => (
@@ -98,22 +152,27 @@ export default function TasksClient({ initialTasks }: Props) {
                             {task.title}
                         </span>
 
-                        <span style={{ marginLeft: "20px" }}>
+                        <span style={{ marginLeft: "30px" }}>
                             {task.completed ? "Completed" : "Pending"}
                         </span>
-
                         <button
-                            style={{ marginLeft: "20px" }}
+                            style={{ marginLeft: "30px" }}
                             onClick={() => completeTask(task.id)}
+                            disabled={updatingTaskId === task.id}
                         >
-                            {task.completed ? "Undo" : "Complete"}
+                            {updatingTaskId === task.id
+                                ? "Updating..."
+                                : task.completed
+                                    ? "Undo"
+                                    : "Complete"}
                         </button>
 
                         <button
-                            style={{ marginLeft: "10px" }}
+                            style={{ marginLeft: "30px" }}
                             onClick={() => deleteTask(task.id)}
+                            disabled={deletingTaskId === task.id}
                         >
-                            Delete
+                            {deletingTaskId === task.id ? "Deleting..." : "Delete"}
                         </button>
                     </li>
                 ))}

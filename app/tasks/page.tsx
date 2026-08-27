@@ -1,4 +1,3 @@
-import { tasks } from "./data";
 import TasksClient from "./TasksClient";
 
 export default function TasksPage() {
@@ -8,7 +7,7 @@ export default function TasksPage() {
                 My Task Tracker
             </h1>
 
-            <TasksClient initialTasks={tasks} />
+            <TasksClient  />
         </main>
     );
 }
