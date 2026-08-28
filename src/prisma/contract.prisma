@@ -1,0 +1,8 @@
+// use prisma-next
+
+model Task {
+  id        String   @id
+  title     String
+  completed Boolean  @default(false)
+  createdAt TimestamptzString @default(now())
+}

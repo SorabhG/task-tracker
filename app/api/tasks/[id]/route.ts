@@ -1,26 +1,28 @@
 import { NextResponse } from "next/server";
-import { tasks } from "@/app/tasks/data";
+
+import { db } from "@/src/prisma/db";
+
 
 export async function DELETE(
     request: Request,
     { params }: { params: Promise<{ id: string }> }
 ) {
-
     const { id } = await params;
-    console.log("Deleting task:", id);
 
-    const taskIndex = tasks.findIndex(task => task.id === id);
+    const task = await db.orm.public.Task
+        .where({ id })
+        .delete();
 
-    if (taskIndex === -1) {
+    if (!task) {
         return NextResponse.json(
             { error: "Task not found" },
             { status: 404 }
         );
     }
 
-    const deletedTask = tasks.splice(taskIndex, 1)[0];
-
-    return NextResponse.json(deletedTask);
+    return Response.json({
+        message: "Task deleted successfully"
+    });
 }
 
 
@@ -32,27 +34,26 @@ export async function PATCH(
 
     const body = await request.json();
     const completed = body.completed;
-        if (typeof completed !== "boolean" ) {
+
+    if (typeof completed !== "boolean") {
         return NextResponse.json(
             { error: "completed is not a boolean." },
             { status: 400 }
         );
     }
-    const taskIndex = tasks.findIndex(task => task.id === id);
-    if (taskIndex === -1) {
+
+    const task = await db.orm.public.Task
+        .where({ id })
+        .update({
+            completed
+        });
+
+    if (!task) {
         return NextResponse.json(
             { error: "Task not found" },
             { status: 404 }
         );
     }
-    // mutation option
-    //tasks[taskIndex].completed =   body.completed;
 
-    // replacing the object with spread operator
-    tasks[taskIndex] = {
-        ...tasks[taskIndex],
-        completed: body.completed
-    };
-    return NextResponse.json(tasks[taskIndex]);
-
+    return Response.json(task);
 }

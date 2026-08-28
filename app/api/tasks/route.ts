@@ -1,15 +1,17 @@
 import { randomUUID } from "crypto";
 import { NextResponse } from "next/server";
-import { tasks } from "@/app/tasks/data";
-
+import { db } from "@/src/prisma/db";
 
 
 export async function GET() {
-  return NextResponse.json(tasks);
+    const tasks = await db.orm.public.Task.all();
+
+    return Response.json(tasks);
 }
 
 
 export async function POST(request: Request) {
+
     const body = await request.json();
 
     const title = body.title;
@@ -21,14 +23,15 @@ export async function POST(request: Request) {
         );
     }
 
-    const newTask = {
+
+
+    const task = await db.orm.public.Task.create({
+
         id: randomUUID(),
-        title: title.trim(),
-        completed: false
-    };
+        title
 
-    tasks.push(newTask);
+    });
 
-    return NextResponse.json(newTask, { status: 201 });
+    return Response.json(task, { status: 201 });
 }
 

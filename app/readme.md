@@ -186,3 +186,50 @@ PATCH /api/tasks/123
              │
              ▼
         return task
+
+
+
+                 React UI
+                    │
+          ┌─────────┼─────────┐
+          ↓         ↓         ↓
+         GET       POST     PATCH/DELETE
+          │         │         │
+          └─────────┼─────────┘
+                    ↓
+                Next.js API
+                    │
+                    ↓
+              In-memory data        
+
+
+============================
+db
+src/prisma/contract.prisma
+src/prisma/db.ts
+prisma.config.ts
+.env.example
+
+
+Next.js
+    │
+    │
+    ▼
+Prisma 8
+    │
+    │
+    ▼
+Docker PostgreSQL
+    │
+    ▼
+task_tracker
+
+
+┌─────────────────────────────┐
+│           task              │
+├───────────┬─────────────────┤
+│ id        │ TEXT            │ PK
+│ title     │ TEXT            │
+│ completed │ BOOLEAN         │ DEFAULT false
+│ createdAt │ TIMESTAMPTZ     │ DEFAULT now()
+└───────────┴─────────────────┘
