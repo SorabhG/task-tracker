@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-
+import { updateTaskSchema } from "@/src/validation/taskSchemas";
 import { db } from "@/src/prisma/db";
-
+import { parseJsonBody } from "@/app/api/utils";
 
 export async function DELETE(
     request: Request,
@@ -9,20 +9,30 @@ export async function DELETE(
 ) {
     const { id } = await params;
 
-    const task = await db.orm.public.Task
-        .where({ id })
-        .delete();
+    try {
+        const task = await db.orm.public.Task
+            .where({ id })
+            .delete();
 
-    if (!task) {
+        if (!task) {
+            return NextResponse.json(
+                { error: "Task not found" },
+                { status: 404 }
+            );
+        }
+
+        return Response.json({
+            message: "Task deleted successfully"
+        });
+
+    } catch (error) {
+        console.error("Failed to delete task:", error);
+
         return NextResponse.json(
-            { error: "Task not found" },
-            { status: 404 }
+            { error: "Something went wrong." },
+            { status: 500 }
         );
     }
-
-    return Response.json({
-        message: "Task deleted successfully"
-    });
 }
 
 
@@ -32,28 +42,39 @@ export async function PATCH(
 ) {
     const { id } = await params;
 
-    const body = await request.json();
-    const completed = body.completed;
+    const result = await parseJsonBody(
+        request,
+        updateTaskSchema
+    );
 
-    if (typeof completed !== "boolean") {
-        return NextResponse.json(
-            { error: "completed is not a boolean." },
-            { status: 400 }
-        );
+    if (!result.success) {
+        return result.response;
     }
 
-    const task = await db.orm.public.Task
-        .where({ id })
-        .update({
-            completed
-        });
+    const { completed } = result.data;
 
-    if (!task) {
+    try {
+        const task = await db.orm.public.Task
+            .where({ id })
+            .update({
+                completed
+            });
+
+        if (!task) {
+            return NextResponse.json(
+                { error: "Task not found" },
+                { status: 404 }
+            );
+        }
+
+        return Response.json(task);
+
+    } catch (error) {
+        console.error("Failed to update task:", error);
+
         return NextResponse.json(
-            { error: "Task not found" },
-            { status: 404 }
+            { error: "Something went wrong." },
+            { status: 500 }
         );
     }
-
-    return Response.json(task);
 }
