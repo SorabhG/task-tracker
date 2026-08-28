@@ -1,8 +1,29 @@
 // use prisma-next
 
+model User {
+    id           String @id
+    email        String @unique
+    passwordHash String
+    createdAt    TimestamptzString @default(now())
+
+    tasks        Task[]
+    sessions    Session[]
+}
+
 model Task {
-  id        String   @id
-  title     String
-  completed Boolean  @default(false)
-  createdAt TimestamptzString @default(now())
+    id        String @id
+    title     String
+    completed Boolean @default(false)
+    createdAt TimestamptzString @default(now())
+
+    userId    String
+    user      User @relation(fields: [userId], references: [id])
+}
+
+model Session {
+    id        String @id
+    userId    String
+    expiresAt TimestamptzString
+
+    user      User @relation(fields: [userId], references: [id])
 }

@@ -3,11 +3,24 @@ import { NextResponse } from "next/server";
 import { db } from "@/src/prisma/db";
 import { createTaskSchema } from "@/src/validation/taskSchemas";
 import { parseJsonBody } from "@/app/api/utils";
+import { getCurrentUser } from "@/src/auth";
 
 export async function GET() {
-    const tasks = await db.orm.public.Task.all();
+    const user = await getCurrentUser();
 
-    return Response.json(tasks);
+    if (!user) {
+        return NextResponse.json(
+            { error: "Not authenticated" },
+            { status: 401 }
+        );
+    }
+
+    const tasks = await db.orm.public.Task
+     .where({ userId: user.id })
+     .all();
+     
+
+    return NextResponse.json(tasks);
 }
 
 
@@ -15,6 +28,14 @@ export async function GET() {
 
 
 export async function POST(request: Request) {
+    const user = await getCurrentUser();
+    if (!user) {
+    return NextResponse.json(
+        { error: "Not authenticated" },
+        { status: 401 }
+    );
+}
+
     const result = await parseJsonBody(
         request,
         createTaskSchema
@@ -31,6 +52,7 @@ export async function POST(request: Request) {
         const task = await db.orm.public.Task.create({
             id: randomUUID(),
             title: title,
+            userId: user.id
         });
 
         return Response.json(task, { status: 201 });

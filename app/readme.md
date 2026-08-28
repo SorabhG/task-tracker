@@ -233,3 +233,50 @@ task_tracker
 │ completed │ BOOLEAN         │ DEFAULT false
 │ createdAt │ TIMESTAMPTZ     │ DEFAULT now()
 └───────────┴─────────────────┘
+
+
+Our Phase 8 architecture
+
+We'll gradually arrive at:
+                    Browser
+                       │
+             ┌─────────┴─────────┐
+             │                   │
+          Login               Tasks
+             │                   │
+             ↓                   ↓
+       /api/auth/login      /api/tasks
+             │                   │
+             ↓                   ↓
+          Session           Authentication
+                                 │
+                                 ↓
+                           Current User
+                                 │
+                                 ↓
+                           Authorisation
+                                 │
+                                 ↓
+                            PostgreSQL
+
+┌──────────────┐
+│     User     │
+├──────────────┤
+│ id           │
+│ email        │
+│ passwordHash │
+└──────┬───────┘
+       │
+       │ 1
+       │
+       │ *
+       ↓
+┌──────────────┐
+│     Task     │
+├──────────────┤
+│ id           │
+│ title        │
+│ completed    │
+│ userId       │
+│ createdAt    │
+└──────────────┘                            

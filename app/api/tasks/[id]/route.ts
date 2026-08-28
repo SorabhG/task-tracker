@@ -2,16 +2,28 @@ import { NextResponse } from "next/server";
 import { updateTaskSchema } from "@/src/validation/taskSchemas";
 import { db } from "@/src/prisma/db";
 import { parseJsonBody } from "@/app/api/utils";
+import { getCurrentUser } from "@/src/auth";
 
 export async function DELETE(
     request: Request,
     { params }: { params: Promise<{ id: string }> }
 ) {
+    const user = await getCurrentUser();
+
+    if (!user) {
+        return NextResponse.json(
+            { error: "Not authenticated" },
+            { status: 401 }
+        );
+    }
     const { id } = await params;
 
     try {
         const task = await db.orm.public.Task
-            .where({ id })
+            .where({
+                id,
+                userId: user.id
+            })
             .delete();
 
         if (!task) {
@@ -40,6 +52,15 @@ export async function PATCH(
     request: Request,
     { params }: { params: Promise<{ id: string }> }
 ) {
+    const user = await getCurrentUser();
+
+    if (!user) {
+        return NextResponse.json(
+            { error: "Not authenticated" },
+            { status: 401 }
+        );
+    }
+
     const { id } = await params;
 
     const result = await parseJsonBody(
@@ -55,7 +76,10 @@ export async function PATCH(
 
     try {
         const task = await db.orm.public.Task
-            .where({ id })
+            .where({
+                id,
+                userId: user.id
+            })
             .update({
                 completed
             });
