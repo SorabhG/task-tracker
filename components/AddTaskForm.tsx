@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Button from "./Button";
 
 type Props = {
     onAdd: (title: string) => void;
@@ -29,12 +30,13 @@ export default function AddTaskForm(props: Props) {
                 placeholder="Enter task"
             />
 
-            <button
+            <Button
+            
                 onClick={handleAdd}
                 disabled={props.isLoading}
             >
                 {props.isLoading ? "Adding..." : "Add Task"}
-            </button>
+            </Button>
         </div>
     );
 }

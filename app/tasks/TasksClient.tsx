@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { Task } from "./types";
-import AddTaskForm from "./AddTaskForm";
+import AddTaskForm from "../../components/AddTaskForm";
 import Link from "next/link";
-
+import TaskItem from "@/components/TaskItem";
 
 
 export default function TasksClient() {
@@ -148,36 +148,14 @@ export default function TasksClient() {
 
             <ul>
                 {tasks.map(task => (
-                    <li key={task.id}>
-                        <span>
-                            <Link href={`/tasks/${task.id}`}>
-                                {task.title}
-                            </Link>
-                        </span>
-
-                        <span style={{ marginLeft: "30px" }}>
-                            {task.completed ? "Completed" : "Pending"}
-                        </span>
-                        <button
-                            style={{ marginLeft: "30px" }}
-                            onClick={() => completeTask(task.id)}
-                            disabled={updatingTaskId === task.id}
-                        >
-                            {updatingTaskId === task.id
-                                ? "Updating..."
-                                : task.completed
-                                    ? "Undo"
-                                    : "Complete"}
-                        </button>
-
-                        <button
-                            style={{ marginLeft: "30px" }}
-                            onClick={() => deleteTask(task.id)}
-                            disabled={deletingTaskId === task.id}
-                        >
-                            {deletingTaskId === task.id ? "Deleting..." : "Delete"}
-                        </button>
-                    </li>
+                    <TaskItem
+                        key={task.id}
+                        task={task}
+                        onComplete={completeTask}
+                        onDelete={deleteTask}
+                        isUpdating={updatingTaskId === task.id}
+                        isDeleting={deletingTaskId === task.id}
+                    />
                 ))}
             </ul>
         </div>
