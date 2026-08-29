@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Task } from "./types";
 import AddTaskForm from "./AddTaskForm";
+import Link from "next/link";
 
 
 
@@ -149,7 +150,9 @@ export default function TasksClient() {
                 {tasks.map(task => (
                     <li key={task.id}>
                         <span>
-                            {task.title}
+                            <Link href={`/tasks/${task.id}`}>
+                                {task.title}
+                            </Link>
                         </span>
 
                         <span style={{ marginLeft: "30px" }}>
