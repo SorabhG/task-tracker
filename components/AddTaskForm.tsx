@@ -4,7 +4,7 @@ import { useState } from "react";
 import Button from "./Button";
 
 type Props = {
-    onAdd: (title: string) => void;
+    onAdd: (title: string) => Promise<boolean>;
     isLoading: boolean;
 };
 
@@ -12,10 +12,12 @@ export default function AddTaskForm(props: Props) {
     //destructuring example function AddTaskForm({ onAdd }: Props)
     const [title, setTitle] = useState("");
 
-    function handleAdd() {
-        //destructuring example onAdd(title);
-        props.onAdd(title);
-        setTitle("");
+    async function handleAdd() {
+        const success = await props.onAdd(title);
+
+        if (success) {
+            setTitle("");
+        }
     }
 
 
@@ -31,11 +33,11 @@ export default function AddTaskForm(props: Props) {
             />
 
             <Button
-            
+
                 onClick={handleAdd}
                 disabled={props.isLoading}
             >
-                {props.isLoading ? "Adding..." : "Add Task"}
+                {props.isLoading ? "⏳ Adding..." : "Add Task"}
             </Button>
         </div>
     );

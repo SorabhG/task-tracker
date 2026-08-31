@@ -1,47 +1,29 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Task } from "./types";
-import AddTaskForm from "../../components/AddTaskForm";
-import Link from "next/link";
 import TaskItem from "@/components/TaskItem";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import AddTaskForm from "../../components/AddTaskForm";
+import { Task } from "./types";
 
 
-export default function TasksClient() {
-    const [tasks, setTasks] = useState<Task[]>([]);
+type Props = {
+    initialTasks: Task[];
+};
+
+export default function TasksClient({ initialTasks }: Props) {
+    const router = useRouter();
     const [isLoading, setIsLoading] = useState(false);
-    const [isLoadingTasks, setIsLoadingTasks] = useState(true);
     const [deletingTaskId, setDeletingTaskId] = useState<string | null>(null);
     const [updatingTaskId, setUpdatingTaskId] = useState<string | null>(null);
-
-    useEffect(() => {
-        async function loadTasks() {
-            try {
-                const response = await fetch("/api/tasks");
-
-                const data = await response.json();
-
-                if (!response.ok) {
-                    alert(data.error);
-                    return;
-                }
-
-                setTasks(data);
-
-            } catch (error) {
-                alert("Unable to load tasks.");
-            } finally {
-                setIsLoadingTasks(false);
-            }
-        }
-
-        loadTasks();
-    }, []);
+    const [error, setError] = useState<string | null>(null);
 
     async function addTask(title: string) {
         setIsLoading(true);
+        setError(null);
 
         try {
+
             const response = await fetch("/api/tasks", {
                 method: "POST",
                 headers: {
@@ -55,61 +37,56 @@ export default function TasksClient() {
             const data = await response.json();
 
             if (!response.ok) {
-                alert(data.error);
-                return;
+                setError(data.error);
+                return false;
             }
 
-            setTasks(prevTasks => [...prevTasks, data]);
+            router.refresh();
+            return true;
 
         } catch (error) {
-            alert("Something went wrong. Please try again.");
+            setError("Something went wrong. Please try again.");
+            return false;
         } finally {
             setIsLoading(false);
         }
     }
 
+   async function completeTask(id: string) {
+    const task = initialTasks.find(task => task.id === id);
 
-    async function completeTask(id: string) {
-        const task = tasks.find(task => task.id === id);
+    if (!task) return;
 
-        if (!task) return;
+    const newCompleted = !task.completed;
 
-        const newCompleted = !task.completed;
+    setUpdatingTaskId(id);
 
-        setUpdatingTaskId(id);
+    try {
+        const response = await fetch(`/api/tasks/${id}`, {
+            method: "PATCH",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                completed: newCompleted
+            })
+        });
 
-        try {
-            const response = await fetch(`/api/tasks/${id}`, {
-                method: "PATCH",
-                headers: {
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify({
-                    completed: newCompleted
-                })
-            });
+        const data = await response.json();
 
-            const data = await response.json();
-
-            if (!response.ok) {
-                alert(data.error);
-                return;
-            }
-
-            setTasks(prevTasks =>
-                prevTasks.map(task =>
-                    task.id === id
-                        ? { ...task, completed: data.completed }
-                        : task
-                )
-            );
-
-        } catch (error) {
-            alert("Something went wrong. Please try again.");
-        } finally {
-            setUpdatingTaskId(null);
+        if (!response.ok) {
+            alert(data.error);
+            return;
         }
+
+        router.refresh();
+
+    } catch (error) {
+        alert("Something went wrong. Please try again.");
+    } finally {
+        setUpdatingTaskId(null);
     }
+}
 
     async function deleteTask(id: string) {
         setDeletingTaskId(id);
@@ -126,9 +103,7 @@ export default function TasksClient() {
                 return;
             }
 
-            setTasks(prevTasks =>
-                prevTasks.filter(task => task.id !== id)
-            );
+            router.refresh();
 
         } catch (error) {
             alert("Something went wrong. Please try again.");
@@ -139,15 +114,20 @@ export default function TasksClient() {
 
     return (
         <div>
+            {error && (
+                <p>
+                    {error}
+                </p>
+            )}
             <AddTaskForm
                 onAdd={addTask}
                 isLoading={isLoading}
             />
 
-            {isLoadingTasks && <p>Loading tasks...</p>}
+
 
             <ul>
-                {tasks.map(task => (
+                {initialTasks.map(task => (
                     <TaskItem
                         key={task.id}
                         task={task}

@@ -73,6 +73,7 @@ export async function PATCH(
     }
 
     const { completed } = result.data;
+    await new Promise(resolve => setTimeout(resolve, 3000));
 
     try {
         const task = await db.orm.public.Task

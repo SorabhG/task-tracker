@@ -4,6 +4,7 @@ import { db } from "@/src/prisma/db";
 import { createTaskSchema } from "@/src/validation/taskSchemas";
 import { parseJsonBody } from "@/app/api/utils";
 import { getCurrentUser } from "@/src/auth";
+import { getTasksForUser } from "@/src/tasks";
 
 export async function GET() {
     const user = await getCurrentUser();
@@ -15,9 +16,7 @@ export async function GET() {
         );
     }
 
-    const tasks = await db.orm.public.Task
-     .where({ userId: user.id })
-     .all();
+    const tasks =getTasksForUser(user.id);
      
 
     return NextResponse.json(tasks);
