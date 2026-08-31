@@ -903,3 +903,63 @@ id = <task-id>
 ### Phase 10 Outcome
 
 The Task Tracker now supports multiple pages, nested layouts, dynamic task-detail routes, and Next.js client-side navigation.
+
+# Phase 11 — Reusable Components
+
+## Objective
+
+Learn how to create reusable, maintainable React components and make them flexible without creating components with a giant list of props.
+
+---
+
+## 1. Component Responsibilities
+
+Instead of putting all UI logic into one large component, split the application into smaller components with clear responsibilities.
+
+Example:
+
+```text
+TasksClient
+    ↓
+Manages task state and API/business logic
+
+AddTaskForm
+    ↓
+Responsible for the add-task form
+
+Button
+    ↓
+Reusable button UI
+
+Panel
+    ↓
+Reusable container/layout
+
+
+
+
+Reusable Components
+        ↓
+Clear component responsibilities
+        ↓
+Props for data and behaviour
+        ↓
+TypeScript for safe prop definitions
+        ↓
+children for flexible nested content
+        ↓
+React.ReactNode for renderable content
+        ↓
+Composition for flexible component design
+        ↓
+Avoid giant lists of configuration props
+```
+
+# Most important concepts to remember
+	1. Props pass data and behaviour into components.
+	2. children is a special prop containing nested content.
+	3. React.ReactNode is a TypeScript type for content React can render.
+	4. Composition makes components flexible without requiring many props.
+	5. A reusable component should have a clear responsibility.
+	6. Don't create a prop for every possible piece of content — consider composition.
+Reusable components reduce duplication and make the application easier to maintain.
