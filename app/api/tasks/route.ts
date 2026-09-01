@@ -3,37 +3,21 @@ import { NextResponse } from "next/server";
 import { db } from "@/src/prisma/db";
 import { createTaskSchema } from "@/src/validation/taskSchemas";
 import { parseJsonBody } from "@/app/api/utils";
-import { getCurrentUser } from "@/src/auth";
+import { getCurrentUser, requireCurrentUser } from "@/src/auth";
 import { getTasksForUser } from "@/src/tasks";
 
 export async function GET() {
-    const user = await getCurrentUser();
+    const user = await requireCurrentUser();
 
-    if (!user) {
-        return NextResponse.json(
-            { error: "Not authenticated" },
-            { status: 401 }
-        );
-    }
+    const tasks = await getTasksForUser(user.id);
 
-    const tasks =getTasksForUser(user.id);
-     
 
     return NextResponse.json(tasks);
 }
 
 
-
-
-
 export async function POST(request: Request) {
-    const user = await getCurrentUser();
-    if (!user) {
-    return NextResponse.json(
-        { error: "Not authenticated" },
-        { status: 401 }
-    );
-}
+const user = await requireCurrentUser();
 
     const result = await parseJsonBody(
         request,

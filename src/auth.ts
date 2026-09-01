@@ -50,3 +50,13 @@ export async function getCurrentUser() {
 
     return user;
 }
+
+export async function requireCurrentUser() {
+    const user = await getCurrentUser();
+
+    if (!user) {
+        throw new Error("UNAUTHORIZED");
+    }
+
+    return user;
+}

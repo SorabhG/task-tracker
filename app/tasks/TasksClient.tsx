@@ -5,7 +5,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import AddTaskForm from "../../components/AddTaskForm";
 import { Task } from "./types";
-
+import { createTask } from "@/src/actions/tasks";
 
 type Props = {
     initialTasks: Task[];
@@ -18,39 +18,28 @@ export default function TasksClient({ initialTasks }: Props) {
     const [updatingTaskId, setUpdatingTaskId] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
 
-    async function addTask(title: string) {
-        setIsLoading(true);
-        setError(null);
+async function addTask(title: string) {
+    setIsLoading(true);
+    setError(null);
 
-        try {
+    try {
+        const result = await createTask(title);
 
-            const response = await fetch("/api/tasks", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify({
-                    title: title
-                })
-            });
-
-            const data = await response.json();
-
-            if (!response.ok) {
-                setError(data.error);
-                return false;
-            }
-
-            router.refresh();
-            return true;
-
-        } catch (error) {
-            setError("Something went wrong. Please try again.");
+        if (!result.success) {
+            setError(result.error ?? "Something went wrong.");
             return false;
-        } finally {
-            setIsLoading(false);
         }
+
+        router.refresh();
+        return true;
+
+    } catch (error) {
+        setError("Something went wrong. Please try again.");
+        return false;
+    } finally {
+        setIsLoading(false);
     }
+}
 
    async function completeTask(id: string) {
     const task = initialTasks.find(task => task.id === id);

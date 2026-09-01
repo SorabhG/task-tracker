@@ -963,3 +963,19 @@ Avoid giant lists of configuration props
 	5. A reusable component should have a clear responsibility.
 	6. Don't create a prop for every possible piece of content — consider composition.
 Reusable components reduce duplication and make the application easier to maintain.
+
+                    BROWSER
+                       │
+              ┌────────┴────────┐
+              ↓                 ↓
+          /tasks           /api/tasks
+              │                 │
+              ↓                 ↓
+         page.tsx           route.ts
+         SERVER              SERVER
+              │                 │
+              ↓                 ↓
+        TasksClient       business/database
+         CLIENT                 │
+              │                 ↓
+              └──────────→ DATABASE
