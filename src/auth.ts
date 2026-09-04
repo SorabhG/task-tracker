@@ -5,10 +5,14 @@ import { db } from "@/src/prisma/db";
 export async function getCurrentUser() {
     const cookieStore = await cookies();
 
+    console.log(
+        "AUTH DEBUG - all cookies:",
+        cookieStore.getAll().map(cookie => cookie.name)
+    );
+
     const sessionId = cookieStore.get("sessionId")?.value;
 
     console.log("AUTH DEBUG - sessionId:", sessionId);
-
     if (!sessionId) {
         console.log("AUTH DEBUG - No session cookie");
         return null;

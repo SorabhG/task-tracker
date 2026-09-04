@@ -58,13 +58,17 @@ export async function POST(request: Request) {
 
     const cookieStore = await cookies();
 
-cookieStore.set("sessionId", sessionId, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    expires: new Date(expiresAtString),
-    path: "/",
-});
+    console.log("AUTH LOGIN DEBUG - sessionId:", sessionId);
+    console.log("AUTH LOGIN DEBUG - NODE_ENV:", process.env.NODE_ENV);
+    console.log("AUTH LOGIN DEBUG - expiresAt:", expiresAtString);
+    cookieStore.set("sessionId", sessionId, {
+        httpOnly: true,
+        //secure: process.env.NODE_ENV === "production",
+        secure: false, // Temporary: AWS is currently accessed over HTTP
+        sameSite: "lax",
+        expires: new Date(expiresAtString),
+        path: "/",
+    });
 
     return NextResponse.json({
         message: "Login successful",
