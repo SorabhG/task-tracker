@@ -2475,3 +2475,1396 @@ ECR
 ECS
       ↓
 RDS
+
+
+
+
+Absolutely. Below is **one single consolidated copy-paste block** for your `README.md`, covering **Phase 14 + Phase 15**, including what we actually did, the AWS architecture, important commands, environment-variable confusion, IAM roles, RDS, ECR, ECS, deployment/update flow, and cost cleanup.
+
+````markdown
+# Phase 14 & Phase 15 — Production Readiness + AWS Deployment 🚀
+
+## Overview
+
+Phase 14 prepared the Task Tracker application for production.
+
+Phase 15 deployed the application to AWS using Docker, Amazon ECR, Amazon ECS/Fargate, Amazon RDS PostgreSQL and AWS Secrets Manager.
+
+The overall production architecture became:
+
+```text
+                    Internet
+                       │
+                       ▼
+                AWS ECS / Fargate
+                task-tracker app
+                       │
+             ┌─────────┴─────────┐
+             │                   │
+             ▼                   ▼
+      Secrets Manager        RDS PostgreSQL
+      task-tracker/rds       task-tracker-db
+             │
+             └──── DATABASE_URL
+````
+
+Local development remained:
+
+```text
+Developer machine
+       │
+       ▼
+Next.js application
+       │
+       ▼
+Docker
+       │
+       ▼
+PostgreSQL Docker container
+       │
+       ▼
+task_tracker database
+```
+
+Production became:
+
+```text
+Developer machine
+       │
+       │ docker build
+       ▼
+Docker image
+       │
+       │ docker push
+       ▼
+Amazon ECR
+       │
+       │ ECS pulls image
+       ▼
+Amazon ECS / Fargate
+       │
+       │ DATABASE_URL from Secrets Manager
+       ▼
+Amazon RDS PostgreSQL
+```
+
+---
+
+# PHASE 14 — PRODUCTION READINESS
+
+## 14.1 Environment Variables
+
+We separated configuration from application code.
+
+The application uses:
+
+```text
+DATABASE_URL
+```
+
+instead of hard-coding database connection information.
+
+### Local
+
+Local `.env` contains a local PostgreSQL connection:
+
+```env
+DATABASE_URL=postgresql://taskuser:taskpassword@localhost:5432/task_tracker
+```
+
+This works when the application runs directly on the developer machine because PostgreSQL is also running locally.
+
+### Production
+
+The ECS container cannot use:
+
+```text
+localhost
+```
+
+for the database.
+
+Inside ECS, `localhost` means:
+
+```text
+the ECS application container itself
+```
+
+not the RDS database.
+
+Therefore production uses the RDS hostname:
+
+```text
+postgresql://taskuser:password@task-tracker-db.xxxxx.ap-south-1.rds.amazonaws.com:5432/postgres
+```
+
+The production DATABASE_URL was stored in:
+
+```text
+AWS Secrets Manager
+```
+
+rather than committing the password into Git or the Docker image.
+
+---
+
+# 14.2 Important Environment Variable Concept
+
+Environment variables belong to the environment where the application is running.
+
+For example:
+
+```text
+LOCAL
+DATABASE_URL
+    ↓
+localhost:5432/task_tracker
+```
+
+while:
+
+```text
+AWS
+DATABASE_URL
+    ↓
+task-tracker-db.xxxxx.rds.amazonaws.com:5432/postgres
+```
+
+The application code does not need to change.
+
+It simply reads:
+
+```text
+process.env.DATABASE_URL
+```
+
+The environment provides the appropriate value.
+
+Therefore:
+
+```text
+Same application code
+        │
+        ├── Local → local PostgreSQL
+        │
+        └── AWS   → RDS PostgreSQL
+```
+
+This is one of the most important production configuration concepts learned in this phase.
+
+---
+
+# 14.3 Production Error Handling and Security
+
+We reviewed the application for production readiness, including:
+
+* Environment variables
+* Authentication
+* Password hashing
+* Session handling
+* API validation
+* Error handling
+* Database access
+* Production configuration
+* Docker build verification
+
+Sensitive credentials were not intended to be stored in source code.
+
+---
+
+# 14.4 Database Migration / Production DB
+
+We learned that creating a PostgreSQL database server does NOT automatically create our application tables.
+
+The RDS instance initially provides PostgreSQL and a database such as:
+
+```text
+postgres
+```
+
+Our application schema/tables need to be created using the application's database migration process.
+
+Conceptually:
+
+```text
+RDS PostgreSQL
+      │
+      ▼
+Run Prisma migration
+      │
+      ▼
+Create application tables
+      │
+      ▼
+User
+Session
+Task
+...
+```
+
+Local and production databases are separate databases.
+
+Local:
+
+```text
+task_tracker
+```
+
+AWS:
+
+```text
+postgres
+```
+
+The database name does not have to be identical.
+
+What matters is that:
+
+```text
+DATABASE_URL
+```
+
+points to the correct production database.
+
+---
+
+# 14.5 Production Build Verification
+
+We verified that the application could be built successfully using:
+
+```powershell
+npm run build
+```
+
+We then built the production Docker image.
+
+The Docker build completed successfully:
+
+```powershell
+docker build -t task-tracker:local .
+```
+
+The image was confirmed as:
+
+```text
+linux/amd64
+```
+
+using:
+
+```powershell
+docker image inspect task-tracker:local --format "{{.Os}}/{{.Architecture}}"
+```
+
+Result:
+
+```text
+linux/amd64
+```
+
+We initially considered ARM64 because Fargate ARM can be cheaper, but building the ARM64 image locally resulted in:
+
+```text
+exec format error
+```
+
+Therefore, for this POC we continued with:
+
+```text
+Linux / AMD64
+```
+
+because the cost difference was small and the goal was to finish the learning exercise efficiently.
+
+---
+
+# PHASE 15 — AWS DEPLOYMENT 🚀
+
+# 15.1 AWS Account / IAM User
+
+We used a personal AWS account rather than an organisation/office AWS account.
+
+An IAM user named:
+
+```text
+developer
+```
+
+was used for AWS CLI operations.
+
+The AWS CLI was configured with an access key created for this IAM user.
+
+We verified the currently authenticated AWS identity with:
+
+```powershell
+aws sts get-caller-identity
+```
+
+This is useful whenever there is confusion about:
+
+```text
+Which AWS account?
+Which IAM user?
+Which credentials?
+```
+
+---
+
+# 15.2 IAM Permissions
+
+The IAM user had permissions through the existing `dev` group, including AWS managed policies such as:
+
+```text
+AmazonAPIGatewayAdministrator
+AmazonDynamoDBFullAccess
+AWSLambda_FullAccess
+CloudWatchLogsFullAccess
+```
+
+There was also:
+
+```text
+DeveloperSelfManageIAM
+```
+
+and:
+
+```text
+IAMUserChangePassword
+```
+
+For ECS, an important distinction was learned:
+
+## IAM User vs IAM Role
+
+The IAM user:
+
+```text
+developer
+```
+
+is the identity used by us to operate AWS.
+
+The ECS task does NOT run using the developer user's credentials.
+
+Instead, ECS uses an IAM role.
+
+For example:
+
+```text
+developer IAM user
+       │
+       │ creates/configures
+       ▼
+ECS resources
+       │
+       ▼
+ecsTaskExecutionRole
+       │
+       │ used by ECS task
+       ▼
+ECR / Secrets Manager / CloudWatch logging
+```
+
+This is an important AWS security concept.
+
+---
+
+# 15.3 ecsTaskExecutionRole
+
+We used:
+
+```text
+ecsTaskExecutionRole
+```
+
+as the ECS task execution role.
+
+Its purpose is to give ECS permission to perform actions required to start/run the container, such as:
+
+* Pull the Docker image from ECR
+* Read required AWS secrets
+* Perform required ECS execution operations
+* Send container logs when configured
+
+The developer user creates/configures the ECS resources.
+
+The ECS task then assumes/uses the execution role.
+
+Therefore:
+
+```text
+developer
+    ↓
+creates ECS task definition
+
+ecsTaskExecutionRole
+    ↓
+used by running ECS task
+```
+
+They are two different identities.
+
+---
+
+# 15.4 ECS Service-Linked Role
+
+During ECS cluster creation we initially received:
+
+```text
+Unable to assume the service linked role.
+Please verify that the ECS service linked role exists.
+```
+
+We checked:
+
+```powershell
+aws iam get-role --role-name AWSServiceRoleForECS
+```
+
+This confirmed that:
+
+```text
+AWSServiceRoleForECS
+```
+
+existed.
+
+After logging out and back into AWS, the ECS cluster creation succeeded.
+
+This was a useful lesson:
+
+```text
+AWS services may require service-linked IAM roles
+```
+
+These are different from the ECS task execution role.
+
+---
+
+# 15.5 Amazon RDS PostgreSQL
+
+We created an Amazon RDS PostgreSQL instance:
+
+```text
+DB identifier:
+task-tracker-db
+```
+
+Region:
+
+```text
+ap-south-1
+```
+
+Mumbai.
+
+Instance class used:
+
+```text
+db.t4g.micro
+```
+
+The RDS endpoint looked similar to:
+
+```text
+task-tracker-db.xxxxx.ap-south-1.rds.amazonaws.com
+```
+
+RDS provides managed PostgreSQL so that we do not have to run PostgreSQL ourselves on an EC2 server.
+
+---
+
+# 15.6 RDS Credentials
+
+The RDS username was:
+
+```text
+taskuser
+```
+
+The password was configured when the database was created.
+
+The credentials were not supposed to be placed directly into source code.
+
+We used AWS Secrets Manager for the production database connection information.
+
+---
+
+# 15.7 Local PostgreSQL vs RDS PostgreSQL
+
+Our Docker Compose setup was:
+
+```yaml
+services:
+  postgres:
+    image: postgres:17
+    container_name: task-tracker-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: taskuser
+      POSTGRES_PASSWORD: taskpassword
+      POSTGRES_DB: task_tracker
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:
+```
+
+This creates:
+
+```text
+PostgreSQL Docker container
+        │
+        └── task_tracker database
+```
+
+AWS RDS is completely separate:
+
+```text
+AWS RDS PostgreSQL
+        │
+        └── postgres database
+```
+
+Therefore:
+
+```text
+LOCAL DATABASE ≠ PRODUCTION DATABASE
+```
+
+The same application code can work with both because the database location is supplied through:
+
+```text
+DATABASE_URL
+```
+
+---
+
+# 15.8 Amazon ECR
+
+We created an Amazon Elastic Container Registry repository:
+
+```text
+task-tracker
+```
+
+ECR is essentially our AWS Docker image registry.
+
+The flow is:
+
+```text
+Local Docker image
+       │
+       ▼
+ECR
+       │
+       ▼
+ECS/Fargate
+```
+
+We authenticated Docker to ECR using:
+
+```powershell
+aws ecr get-login-password --region ap-south-1 | docker login --username AWS --password-stdin 361432258735.dkr.ecr.ap-south-1.amazonaws.com
+```
+
+Result:
+
+```text
+Login Succeeded
+```
+
+---
+
+# 15.9 Docker Image Tagging
+
+Our local image was:
+
+```text
+task-tracker:local
+```
+
+We tagged it with the ECR repository:
+
+```powershell
+docker tag task-tracker:local 361432258735.dkr.ecr.ap-south-1.amazonaws.com/task-tracker:latest
+```
+
+This does NOT rebuild the image.
+
+It gives the existing Docker image another name/tag so Docker knows where it should be pushed.
+
+---
+
+# 15.10 Push Image to ECR
+
+We pushed the image:
+
+```powershell
+docker push 361432258735.dkr.ecr.ap-south-1.amazonaws.com/task-tracker:latest
+```
+
+The image was successfully uploaded to ECR.
+
+The important flow is:
+
+```text
+docker build
+      ↓
+task-tracker:local
+      ↓
+docker tag
+      ↓
+ECR image name
+      ↓
+docker push
+      ↓
+Amazon ECR
+```
+
+---
+
+# 15.11 ECS Cluster
+
+We created:
+
+```text
+task-tracker-cluster
+```
+
+The ECS cluster is the logical environment that holds our ECS tasks/services.
+
+We selected:
+
+```text
+Fargate
+```
+
+because it is serverless container infrastructure.
+
+We do not manage EC2 servers.
+
+Architecture:
+
+```text
+ECS Cluster
+     │
+     └── Fargate
+           │
+           └── Task / Service
+                 │
+                 └── Docker container
+```
+
+---
+
+# 15.12 ECS Task Definition
+
+We created the task definition family:
+
+```text
+task-tracker
+```
+
+Revision:
+
+```text
+task-tracker:1
+```
+
+Configuration:
+
+```text
+Launch type: Fargate
+OS: Linux
+Architecture: X86_64
+CPU: 0.25 vCPU
+Memory: 0.5 GB
+```
+
+Container:
+
+```text
+Name: task-tracker
+Port: 3000 TCP
+Essential: Yes
+```
+
+The task definition is essentially the deployment blueprint for our container.
+
+It tells ECS:
+
+```text
+Which Docker image?
+How much CPU?
+How much memory?
+Which port?
+Which IAM execution role?
+Which environment/secrets?
+```
+
+---
+
+# 15.13 CPU Configuration
+
+Initially we encountered:
+
+```text
+The sum of the container CPU must not exceed the task CPU.
+```
+
+The reason was that the container CPU allocation was greater than the task CPU allocation.
+
+We corrected it so that:
+
+```text
+Task CPU = 0.25 vCPU
+Container CPU = 0.25 vCPU
+```
+
+The task definition was then successfully created.
+
+---
+
+# 15.14 Secrets Manager
+
+We created a secret:
+
+```text
+task-tracker/rds
+```
+
+The secret contains the production database connection information.
+
+Conceptually:
+
+```text
+Secrets Manager
+      │
+      ▼
+task-tracker/rds
+      │
+      ▼
+DATABASE_URL
+      │
+      ▼
+ECS container
+```
+
+The purpose is to avoid putting the production database password directly into:
+
+```text
+Git
+Dockerfile
+source code
+```
+
+---
+
+# 15.15 ECS Permission to Read the Secret
+
+The ECS task execution role needs permission to retrieve the secret.
+
+The role used was:
+
+```text
+ecsTaskExecutionRole
+```
+
+The permission is associated with the role, not directly with the developer user.
+
+Conceptually:
+
+```text
+developer
+   │
+   │ creates/configures
+   ▼
+ecsTaskExecutionRole
+   │
+   │ allowed to read
+   ▼
+Secrets Manager
+   │
+   ▼
+task-tracker/rds
+```
+
+---
+
+# 15.16 Environment Variable vs Secret
+
+This was one of the confusing parts initially.
+
+An ECS task can receive configuration through environment variables.
+
+For example:
+
+```text
+DATABASE_URL
+```
+
+But there is an important distinction.
+
+### Normal environment variable
+
+```text
+DATABASE_URL = some-value
+```
+
+The value is directly specified.
+
+### Secret-backed environment variable
+
+```text
+DATABASE_URL
+      ↓
+Secrets Manager
+      ↓
+task-tracker/rds
+```
+
+The ECS task retrieves the secret value at runtime.
+
+Therefore our application still simply sees:
+
+```text
+process.env.DATABASE_URL
+```
+
+The application does not need to know whether the value came from:
+
+```text
+.env
+```
+
+or:
+
+```text
+AWS Secrets Manager
+```
+
+---
+
+# 15.17 ECS Service
+
+An ECS Service keeps the desired number of tasks running.
+
+Conceptually:
+
+```text
+ECS Cluster
+     │
+     ▼
+ECS Service
+     │
+     ▼
+Fargate Task
+     │
+     ▼
+task-tracker container
+```
+
+If the task stops unexpectedly, the service can replace it according to the desired-count configuration.
+
+---
+
+# 15.18 CloudWatch
+
+We did not explicitly configure a complicated CloudWatch monitoring setup for this POC.
+
+Some ECS/related logging functionality can appear automatically as part of the AWS deployment configuration.
+
+For this learning project, we kept monitoring simple rather than adding unnecessary observability components and cost.
+
+---
+
+# 15.19 Final AWS Architecture
+
+Our completed POC architecture is:
+
+```text
+                    ┌─────────────────────┐
+                    │      Internet       │
+                    └──────────┬──────────┘
+                               │
+                               ▼
+                    ┌─────────────────────┐
+                    │   ECS Fargate       │
+                    │                     │
+                    │ task-tracker        │
+                    │ Docker container     │
+                    │ Port 3000            │
+                    └──────────┬──────────┘
+                               │
+                 ┌─────────────┴─────────────┐
+                 │                           │
+                 ▼                           ▼
+       ┌───────────────────┐       ┌──────────────────┐
+       │ Secrets Manager   │       │ Amazon RDS        │
+       │                   │       │ PostgreSQL        │
+       │ task-tracker/rds  │       │ task-tracker-db   │
+       └─────────┬─────────┘       └──────────────────┘
+                 │
+                 │ DATABASE_URL
+                 └──────────────────────►
+```
+
+Docker image flow:
+
+```text
+Developer PC
+     │
+     │ docker build
+     ▼
+Docker image
+     │
+     │ docker tag
+     │ docker push
+     ▼
+Amazon ECR
+     │
+     │ ECS pulls image
+     ▼
+Fargate
+```
+
+---
+
+# 15.20 Useful AWS CLI Commands
+
+### Check which AWS identity is active
+
+```powershell
+aws sts get-caller-identity
+```
+
+Useful for confirming:
+
+```text
+AWS account
+IAM user
+current credentials
+```
+
+---
+
+### Check ECS service-linked role
+
+```powershell
+aws iam get-role --role-name AWSServiceRoleForECS
+```
+
+---
+
+### Check RDS master username
+
+We attempted:
+
+```powershell
+aws rds describe-db-instances --db-instance-identifier task-tracker-db --query "DBInstances[0].MasterUsername" --output text
+```
+
+The command returned:
+
+```text
+AccessDenied
+```
+
+because the `developer` IAM user did not have:
+
+```text
+rds:DescribeDBInstances
+```
+
+permission.
+
+This was another useful IAM lesson:
+
+```text
+Being able to see/manage something in the AWS Console as Root
+does not automatically mean an IAM user has the same permission.
+```
+
+---
+
+# 15.21 Updating the Application After Code Changes
+
+Once the AWS deployment is working, the normal update process is:
+
+```text
+1. Change code
+       ↓
+2. Test locally
+       ↓
+3. npm run build
+       ↓
+4. docker build
+       ↓
+5. docker tag
+       ↓
+6. docker push to ECR
+       ↓
+7. Create/update ECS task definition revision
+       ↓
+8. Deploy/update ECS service
+       ↓
+9. ECS starts new task
+       ↓
+10. ECS pulls new image
+       ↓
+11. Test production application
+```
+
+Example:
+
+```powershell
+docker build -t task-tracker:local .
+```
+
+Then:
+
+```powershell
+docker tag task-tracker:local 361432258735.dkr.ecr.ap-south-1.amazonaws.com/task-tracker:latest
+```
+
+Then:
+
+```powershell
+docker push 361432258735.dkr.ecr.ap-south-1.amazonaws.com/task-tracker:latest
+```
+
+Then update/deploy the ECS service.
+
+---
+
+# 15.22 If We Create Another Project
+
+Suppose we create:
+
+```text
+advanced-task-tracker-project2
+```
+
+We should generally give it its own AWS resources.
+
+For example:
+
+```text
+ECR
+advanced-task-tracker-project2
+
+ECS
+advanced-task-tracker-project2 cluster/service
+
+Secrets Manager
+advanced-task-tracker-project2/rds
+
+RDS
+separate DB/database/schema as required
+```
+
+Conceptually:
+
+```text
+Project 1                         Project 2
+
+Task Tracker                      Advanced Task Tracker
+     │                                  │
+     ▼                                  ▼
+ECR repository                      ECR repository
+     │                                  │
+     ▼                                  ▼
+ECS service                         ECS service
+     │                                  │
+     ▼                                  ▼
+RDS / Secrets                       RDS / Secrets
+```
+
+AWS accounts can contain many projects.
+
+The important thing is to keep resources clearly named and separated.
+
+---
+
+# 15.23 Cost Awareness
+
+For this POC, the goal was:
+
+```text
+Build → Deploy → Test → Learn → Delete/stop
+```
+
+rather than keeping the infrastructure running permanently.
+
+Important cost-generating resources can include:
+
+```text
+RDS
+Fargate tasks
+Load balancers
+NAT Gateway
+CloudWatch/log storage
+ECR storage
+```
+
+For a short-lived learning POC, we should avoid leaving unnecessary resources running.
+
+---
+
+# 15.24 What To Do When The POC Is Finished
+
+Before finishing the AWS experiment, review the resources.
+
+### ECS
+
+Stop/delete the running ECS service/tasks.
+
+If the cluster is no longer needed:
+
+```text
+Delete ECS service
+Delete ECS cluster
+```
+
+### RDS
+
+RDS is particularly important because an active database instance continues to incur charges.
+
+For a temporary POC:
+
+```text
+Stop RDS
+```
+
+or, if the database will never be needed again:
+
+```text
+Delete RDS
+```
+
+If deleting, take a final snapshot only if the data is worth keeping.
+
+### ECR
+
+ECR storage is relatively small for a single POC image, but unused images can be deleted.
+
+### Secrets Manager
+
+Delete the secret if it is no longer needed.
+
+### CloudWatch
+
+Review any log groups created for the application and remove unnecessary resources/log retention if appropriate.
+
+### Other AWS Resources
+
+Always check for:
+
+```text
+EC2 instances
+Elastic IPs
+Load Balancers
+NAT Gateways
+VPC resources
+ECS tasks
+RDS instances
+CloudWatch logs
+```
+
+The most important rule is:
+
+```text
+Do not assume that deleting the ECS cluster deletes every AWS resource
+created during the project.
+```
+
+Each service/resource should be reviewed.
+
+---
+
+# 15.25 Final Learning Summary
+
+The biggest AWS concepts learned in Phase 15 were:
+
+```text
+IAM
+ ↓
+Who is allowed to do what?
+
+ECR
+ ↓
+Where is my Docker image stored?
+
+ECS
+ ↓
+Where do I run my container?
+
+Fargate
+ ↓
+How do I run containers without managing servers?
+
+Task Definition
+ ↓
+How should ECS run my container?
+
+ECS Service
+ ↓
+How do I keep my application task running?
+
+RDS
+ ↓
+Where does my production PostgreSQL database live?
+
+Secrets Manager
+ ↓
+Where do I safely store production credentials?
+
+Environment Variables
+ ↓
+How does the same application use different configuration
+in local and production environments?
+
+Docker
+ ↓
+How do I package the application consistently?
+
+AWS CLI
+ ↓
+How do I interact with AWS from the command line?
+```
+
+---
+
+# Phase 14 + 15 — Final End-to-End Picture
+
+```text
+                         DEVELOPMENT
+
+Developer
+   │
+   ▼
+Next.js + TypeScript
+   │
+   ▼
+Docker
+   │
+   ├──────────────► Local PostgreSQL
+   │                    │
+   │                    └── task_tracker
+   │
+   ▼
+Production Docker Image
+   │
+   │ docker push
+   ▼
+                         AWS
+
+                     Amazon ECR
+                         │
+                         │ image
+                         ▼
+                 ECS / Fargate
+                         │
+                         │ runs
+                         ▼
+                  Task Tracker
+                    container
+                         │
+                         │ DATABASE_URL
+                         ▼
+                Secrets Manager
+                task-tracker/rds
+                         │
+                         ▼
+                  Amazon RDS
+                  PostgreSQL
+                         │
+                         ▼
+                  Production DB
+```
+
+## Phase 14
+
+```text
+Production readiness
+       │
+       ├── Environment variables
+       ├── Error handling
+       ├── Security review
+       ├── Database migrations
+       ├── Production configuration
+       └── Build verification
+```
+
+## Phase 15
+
+```text
+AWS Deployment
+       │
+       ├── Docker/container strategy
+       ├── AWS CLI + IAM
+       ├── Amazon ECR
+       ├── Amazon RDS PostgreSQL
+       ├── AWS Secrets Manager
+       ├── ECS Cluster
+       ├── ECS Task Definition
+       ├── ECS Service
+       ├── AWS Fargate
+       ├── Environment/secrets
+       ├── Production configuration
+       ├── Deployment/testing
+       └── Cost awareness + cleanup
+```
+
+## Key takeaway
+
+The application itself did not fundamentally change between local and AWS.
+
+What changed was the infrastructure around it:
+
+```text
+LOCAL
+
+Next.js
+  +
+Docker
+  +
+PostgreSQL Docker container
+
+
+PRODUCTION
+
+Next.js
+  +
+Docker
+  +
+ECR
+  +
+ECS/Fargate
+  +
+Secrets Manager
+  +
+RDS PostgreSQL
+```
+
+The same application code can therefore move from:
+
+```text
+localhost
+```
+
+to:
+
+```text
+AWS
+```
+
+by changing the environment and infrastructure configuration rather than rewriting the application.
+
+```
+```
