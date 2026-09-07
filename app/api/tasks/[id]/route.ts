@@ -58,8 +58,24 @@ export async function PATCH(
         return result.response;
     }
 
-    const { completed } = result.data;
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    const { completed, dueDate } = result.data;
+
+    const updateData: {
+        completed?: boolean;
+        dueDate?: string | null;
+    } = {};
+
+    if (completed !== undefined) {
+        updateData.completed = completed;
+    }
+
+    if (dueDate !== undefined) {
+        updateData.dueDate = dueDate
+            ? dueDate.toISOString()
+            : null;
+    }
+
+    await new Promise(resolve => setTimeout(resolve, 1000));
 
     try {
         const task = await db.orm.public.Task
@@ -67,9 +83,7 @@ export async function PATCH(
                 id,
                 userId: user.id
             })
-            .update({
-                completed
-            });
+            .update(updateData);
 
         if (!task) {
             return NextResponse.json(

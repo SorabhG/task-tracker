@@ -14,7 +14,8 @@ export const createTaskSchema = z.object({
 });
 
 export const updateTaskSchema = z.object({
-    completed: z.boolean()
+    completed: z.boolean().optional(),
+    dueDate: z.coerce.date().nullable().optional()
 });
 
 export type CreateTaskInput = z.infer<typeof createTaskSchema>;

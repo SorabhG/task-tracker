@@ -9,6 +9,7 @@ type Props = {
     task: Task;
     onComplete: (id: string) => void;
     onDelete: (id: string) => void;
+    onDueDateChange: (id: string, dueDate: string | null) => Promise<boolean>;
     isUpdating: boolean;
     isDeleting: boolean;
 };
@@ -48,6 +49,7 @@ export default function TaskItem({
     task,
     onComplete,
     onDelete,
+    onDueDateChange,
     isUpdating,
     isDeleting
 }: Props) {
@@ -59,25 +61,17 @@ export default function TaskItem({
             : ""
     );
 
+async function handleSaveDueDate() {
+    const success = await onDueDateChange(
+        task.id,
+        editDueDate || null
+    );
 
-    async function handleSaveDueDate() {
-        const response = await fetch(`/api/tasks/${task.id}`, {
-            method: "PATCH",
-            headers: {
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-                dueDate: editDueDate || null,
-            }),
-        });
-
-        if (!response.ok) {
-            console.error("Failed to update due date");
-            return;
-        }
-
+    if (success) {
         setIsEditing(false);
     }
+}
+
 
     return (
         <li>
@@ -145,7 +139,7 @@ export default function TaskItem({
                     Edit
                 </button>
             )}
-            
+
             <Button
                 onClick={() => onComplete(task.id)}
                 disabled={isUpdating}

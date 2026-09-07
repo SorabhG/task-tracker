@@ -18,67 +18,67 @@ export default function TasksClient({ initialTasks }: Props) {
     const [updatingTaskId, setUpdatingTaskId] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
 
-async function addTask(input: {
-    title: string;
-    dueDate: string | null;
-}) {
-    setIsLoading(true);
-    setError(null);
+    async function addTask(input: {
+        title: string;
+        dueDate: string | null;
+    }) {
+        setIsLoading(true);
+        setError(null);
 
-    try {
-        const result = await createTask(input);
+        try {
+            const result = await createTask(input);
 
-        if (!result.success) {
-            setError(result.error ?? "Something went wrong.");
+            if (!result.success) {
+                setError(result.error ?? "Something went wrong.");
+                return false;
+            }
+
+            router.refresh();
+            return true;
+
+        } catch (error) {
+            setError("Something went wrong. Please try again.");
             return false;
+        } finally {
+            setIsLoading(false);
         }
-
-        router.refresh();
-        return true;
-
-    } catch (error) {
-        setError("Something went wrong. Please try again.");
-        return false;
-    } finally {
-        setIsLoading(false);
     }
-}
 
-   async function completeTask(id: string) {
-    const task = initialTasks.find(task => task.id === id);
+    async function completeTask(id: string) {
+        const task = initialTasks.find(task => task.id === id);
 
-    if (!task) return;
+        if (!task) return;
 
-    const newCompleted = !task.completed;
+        const newCompleted = !task.completed;
 
-    setUpdatingTaskId(id);
+        setUpdatingTaskId(id);
 
-    try {
-        const response = await fetch(`/api/tasks/${id}`, {
-            method: "PATCH",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify({
-                completed: newCompleted
-            })
-        });
+        try {
+            const response = await fetch(`/api/tasks/${id}`, {
+                method: "PATCH",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    completed: newCompleted
+                })
+            });
 
-        const data = await response.json();
+            const data = await response.json();
 
-        if (!response.ok) {
-            alert(data.error);
-            return;
+            if (!response.ok) {
+                alert(data.error);
+                return;
+            }
+
+            router.refresh();
+
+        } catch (error) {
+            alert("Something went wrong. Please try again.");
+        } finally {
+            setUpdatingTaskId(null);
         }
-
-        router.refresh();
-
-    } catch (error) {
-        alert("Something went wrong. Please try again.");
-    } finally {
-        setUpdatingTaskId(null);
     }
-}
 
     async function deleteTask(id: string) {
         setDeletingTaskId(id);
@@ -104,6 +104,37 @@ async function addTask(input: {
         }
     }
 
+    async function handleDueDateChange(
+        id: string,
+        dueDate: string | null
+    ): Promise<boolean> {
+        try {
+            const response = await fetch(`/api/tasks/${id}`, {
+                method: "PATCH",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    dueDate,
+                }),
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                alert(data.error);
+                return false;
+            }
+
+            router.refresh();
+            return true;
+
+        } catch (error) {
+            alert("Something went wrong. Please try again.");
+            return false;
+        }
+    }
+
     return (
         <div>
             {error && (
@@ -125,6 +156,7 @@ async function addTask(input: {
                         task={task}
                         onComplete={completeTask}
                         onDelete={deleteTask}
+                        onDueDateChange={handleDueDateChange}
                         isUpdating={updatingTaskId === task.id}
                         isDeleting={deletingTaskId === task.id}
                     />
