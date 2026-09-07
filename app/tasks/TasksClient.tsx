@@ -18,12 +18,15 @@ export default function TasksClient({ initialTasks }: Props) {
     const [updatingTaskId, setUpdatingTaskId] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
 
-async function addTask(title: string) {
+async function addTask(input: {
+    title: string;
+    dueDate: string | null;
+}) {
     setIsLoading(true);
     setError(null);
 
     try {
-        const result = await createTask(title);
+        const result = await createTask(input);
 
         if (!result.success) {
             setError(result.error ?? "Something went wrong.");

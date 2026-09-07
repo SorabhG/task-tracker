@@ -5,7 +5,12 @@ export const createTaskSchema = z.object({
         .string()
         .trim()
         .min(1, "Title is required")
-        .max(100, "Title must be 100 characters or less")
+        .max(100, "Title must be 100 characters or less"),
+
+    dueDate: z
+        .string()
+        .regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid due date")
+        .nullable()
 });
 
 export const updateTaskSchema = z.object({

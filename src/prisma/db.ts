@@ -12,7 +12,7 @@ console.log(
 
 console.log(
   "DATABASE_URL starts with:",
-  dbUrl?.substring(0, 38)
+  dbUrl?.substring(0, 22)
 );
 
 export const db = postgres<Contract>({

@@ -15,6 +15,7 @@ model Task {
     title     String
     completed Boolean @default(false)
     createdAt TimestamptzString @default(now())
+    dueDate   TimestamptzString?
 
     userId    String
     user      User @relation(fields: [userId], references: [id])

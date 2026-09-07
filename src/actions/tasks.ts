@@ -2,14 +2,16 @@
 
 import { randomUUID } from "crypto";
 import { db } from "@/src/prisma/db";
-import { createTaskSchema } from "@/src/validation/taskSchemas";
-import {  requireCurrentUser } from "@/src/auth";
+import {
+    createTaskSchema,
+    type CreateTaskInput,
+} from "@/src/validation/taskSchemas";
+import { requireCurrentUser } from "@/src/auth";
 
-export async function createTask(title: string) {
+export async function createTask(input: CreateTaskInput) {
     const user = await requireCurrentUser();
 
-    const result = createTaskSchema.safeParse({ title });
-
+    const result = createTaskSchema.safeParse(input);
     if (!result.success) {
         return {
             success: false,
@@ -22,6 +24,7 @@ export async function createTask(title: string) {
             id: randomUUID(),
             title: result.data.title,
             userId: user.id,
+            dueDate: result.data.dueDate,
         });
 
         return {

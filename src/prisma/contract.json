@@ -94,6 +94,13 @@
                   "kind": "scalar"
                 }
               },
+              "dueDate": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/timestamptz-string@1",
+                  "kind": "scalar"
+                }
+              },
               "id": {
                 "nullable": false,
                 "type": {
@@ -140,6 +147,9 @@
                 },
                 "createdAt": {
                   "column": "createdAt"
+                },
+                "dueDate": {
+                  "column": "dueDate"
                 },
                 "id": {
                   "column": "id"
@@ -319,6 +329,11 @@
                   "nativeType": "timestamptz",
                   "nullable": false
                 },
+                "dueDate": {
+                  "codecId": "pg/timestamptz-string@1",
+                  "nativeType": "timestamptz",
+                  "nullable": true
+                },
                 "id": {
                   "codecId": "pg/text@1",
                   "nativeType": "text",
@@ -418,7 +433,7 @@
         "kind": "postgres-schema"
       }
     },
-    "storageHash": "67bb17cbea24b5e8a63dcd0e3c0d45e52153c9684816a60cb735eba84acf62d9"
+    "storageHash": "faaf53d55f5a1e1e7b4d79eb8259f5466dd0269647df517b3494b1e0a481c4a9"
   },
   "capabilities": {
     "postgres": {
